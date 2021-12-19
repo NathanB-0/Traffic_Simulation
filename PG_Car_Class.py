@@ -1,8 +1,9 @@
 import pygame
 import numpy as np
+import math
 # Can make this class its own file, improves readability of the code
 class Car:
-    def __init__(self, number, x0, y0, v0, a0, angle0, car_size, max_speed, max_pos_acc, car_color, chicken):
+    def __init__(self, number, x0, y0, v0, a0, angle0, car_size, max_speed, max_neg_acc, max_pos_acc, too_close, too_far, car_color):
         self.number = number
         self.x = x0
         self.y = y0
@@ -10,10 +11,19 @@ class Car:
         self.a = a0
         self.size = car_size
         self.max_speed = max_speed
+        self.max_neg_acc = max_neg_acc
         self.max_pos_acc = max_pos_acc
         self.color = car_color
         self.angle = angle0
-        self.chicken_factor = chicken
+        self.close = too_close
+        self.far = too_far
+
+
+    def get_xpos(self):
+        return self.x
+
+    def get_ypos(self):
+        return self.y
 
     def get_velo(self):
         return self.v
@@ -27,20 +37,6 @@ class Car:
     def get_angle(self):
         return self.angle
 
-    def get_x(self):
-        return self.x
-
-    def get_y(self):
-        return self.y
-
-    def get_chicken(self):
-        return self.chicken_factor
-
-    def get_size(self):
-        return self.size
-
-    def set_acc(self, set_acc):
-        self.a = set_acc
 
     def print_summary(self):
         # Originally used when I had a 1D simulation, not corrected for a circular track
@@ -49,24 +45,35 @@ class Car:
     def draw_car(self, window):
         pygame.draw.circle(window, self.color, (self.x, self.y), self.size)
 
-    def move(self, track_radius, screen_width, screen_height):
-        """
-        Should put all of this functionality elsewhere instead of a method in the class
-        """
+    # Checks if two circle cars are intersecting by 
+    # finding the distance between the center of both the circles and 
+    # comparing it to both radii added together. If the distance is less than 
+    # the added radii, then the two cars are intersecting.
+    def check_collision(self, Car):
+        return math.sqrt((self.x - Car.get_xpos())**2 + (self.y - Car.get_ypos())**2) < self.size + Car.get_size()
 
-        if self.a > self.max_pos_acc:
-            self.a = self.max_pos_acc
+    # Makes the car speed up, slow down, or maintain the same velocity depending on
+    # the cars distance from the car in front of it
+    def move(self, Car, track_radius, screen_width, screen_height):
+        if (math.sqrt((self.x - Car.get_xpos())**2 + (self.y - Car.get_ypos())**2)) < self.close and self.v > .5:
+            self.v -= self.a*np.pi/180
+            self.angle += self.v*np.pi/180
+        elif (math.sqrt((self.x - Car.get_xpos())**2 + (self.y - Car.get_ypos())**2)) > self.far:
+            if self.v >= self.max_speed:
+                self.v = self.max_speed
+                self.angle += self.v*np.pi/180
+            else:
+                self.v += self.a*np.pi/180
+                self.angle += self.v*np.pi/180
+        else:
+            self.angle += self.v*np.pi/180
+        
 
-        self.v += self.a*np.pi/180
 
-        if self.v < 0:
-            self.v = 0
-        elif self.v > self.max_speed:
-            self.v = self.max_speed
+        # Will convert this to % for update 2 
+        if self.angle >= 2*np.pi:
+            self.angle -= 2*np.pi
 
-        self.angle += self.v
+        self.x = np.cos(self.angle)*track_radius + screen_width/2
+        self.y = np.sin(self.angle)*track_radius + screen_height/2
 
-        self.angle = self.angle % 360
-
-        self.x = np.cos(self.angle * np.pi/180)*track_radius + screen_width/2
-        self.y = np.sin(self.angle * np.pi/180)*track_radius + screen_height/2
